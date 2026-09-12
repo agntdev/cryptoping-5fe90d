@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Create alert",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Guided flow to create a new alert for a tracked coin"
+            }
+          }
+        ],
+        "send": {
+          "callback": "alert:create:start"
+        }
+      }
+    ]
+  }
+]
