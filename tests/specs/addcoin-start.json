@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Begin guided flow to add a coin to the private watchlist (seeded quick choices + custom ticker)"
+              "text": "Choose a coin to track."
             }
           }
         ],
@@ -15,6 +15,14 @@
           "callback": "addcoin:start"
         }
       }
+    ]
+  }
+  ,{
+    "name": "Add seeded coin and show it in the list",
+    "steps": [
+      { "send": { "callback": "addcoin:start" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose a coin to track." } }] },
+      { "send": { "callback": "addcoin:BTC" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Bitcoin (BTC) is now in your list." } }] },
+      { "send": { "callback": "watchlist:show:0" }, "expect": [{ "method": "editMessageText", "payload": { "text": "Your list (1)\nBitcoin (BTC)" } }] }
     ]
   }
 ]

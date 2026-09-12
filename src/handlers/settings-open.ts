@@ -1,17 +1,19 @@
 import { Composer } from "grammy";
-
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Settings", data: "settings:open" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
-composer.callbackQuery("settings:open", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("Open settings to set timezone, quiet hours, daily summary time, and cooldown defaults");
-});
-
+import type { Ctx } from "../bot.js";
+import { data, localTime, validTime, validZone } from "../crypto.js";
+import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+registerMainMenuItem({ label: "Settings", data: "settings:open", order: 40 });
+const composer = new Composer<Ctx>();
+function summary(ctx: Ctx): string { const p = data(ctx).profile; return `Settings\nTimezone: ${p.timezone}\nQuiet hours: ${p.quietStart}–${p.quietEnd}\nDaily summary: ${p.dailySummary ? p.summaryTime : "Off"}\nDefault cooldown: ${p.cooldown} hours`; }
+function keyboard() { return inlineKeyboard([[inlineButton("Timezone", "settings:timezone")], [inlineButton("Quiet hours", "settings:quiet:start")], [inlineButton("Daily summary", "settings:summary")], [inlineButton("Default cooldown", "settings:cooldown")], [inlineButton("Back to menu", "menu:main")]]); }
+async function render(ctx: Ctx, edit = false) { if (edit) await ctx.editMessageText(summary(ctx), { reply_markup: keyboard() }); else await ctx.reply(summary(ctx), { reply_markup: keyboard() }); }
+composer.callbackQuery("settings:open", async (ctx) => { await ctx.answerCallbackQuery(); await render(ctx); });
+composer.callbackQuery("settings:timezone", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.step = "timezone"; await ctx.reply("Send an IANA timezone, such as Europe/London or America/New_York.", { reply_markup: { force_reply: true, input_field_placeholder: "Region/City" } }); });
+composer.callbackQuery("settings:quiet:start", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.step = "quietStart"; await ctx.reply("Send the quiet-hours start in 24-hour time, for example 23:00.", { reply_markup: { force_reply: true, input_field_placeholder: "23:00" } }); });
+composer.callbackQuery("settings:summary", async (ctx) => { await ctx.answerCallbackQuery(); const p = data(ctx).profile; await ctx.reply(`Daily summary is ${p.dailySummary ? "on" : "off"}.`, { reply_markup: inlineKeyboard([[inlineButton("Turn on", "settings:summary:on"), inlineButton("Turn off", "settings:summary:off")], [inlineButton("Set time", "settings:summary:time")]]) }); });
+composer.callbackQuery(/^settings:summary:(on|off)$/, async (ctx) => { await ctx.answerCallbackQuery(); data(ctx).profile.dailySummary = ctx.match[1] === "on"; await ctx.reply(`Daily summary is ${ctx.match[1] === "on" ? "on" : "off"}.`, { reply_markup: keyboard() }); });
+composer.callbackQuery("settings:summary:time", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.step = "summaryTime"; await ctx.reply("Send the daily summary time in your timezone, for example 09:00.", { reply_markup: { force_reply: true, input_field_placeholder: "09:00" } }); });
+composer.callbackQuery("settings:cooldown", async (ctx) => { await ctx.answerCallbackQuery(); await ctx.reply("Choose your default alert cooldown.", { reply_markup: inlineKeyboard([[inlineButton("1 hour", "settings:cooldown:1"), inlineButton("4 hours", "settings:cooldown:4")], [inlineButton("12 hours", "settings:cooldown:12"), inlineButton("24 hours", "settings:cooldown:24")]]) }); });
+composer.callbackQuery(/^settings:cooldown:(1|4|12|24)$/, async (ctx) => { await ctx.answerCallbackQuery(); data(ctx).profile.cooldown = Number(ctx.match[1]); await ctx.reply(`Your default cooldown is now ${ctx.match[1]} hours.`, { reply_markup: keyboard() }); });
+composer.on("message:text", async (ctx, next) => { const step = ctx.session.step; if (!step || !["timezone", "quietStart", "quietEnd", "summaryTime"].includes(step)) return next(); const value = ctx.message.text.trim(); const p = data(ctx).profile; if (step === "timezone") { if (!validZone(value)) { await ctx.reply("That timezone isn't recognised. Try a name like Europe/London."); return; } p.timezone = value; ctx.session.step = undefined; await ctx.reply(`Timezone saved. Current local time is ${localTime(value)}.`, { reply_markup: keyboard() }); return; } if (!validTime(value)) { await ctx.reply("Use 24-hour time in the form HH:MM, for example 23:00."); return; } if (step === "quietStart") { p.quietStart = value; ctx.session.step = "quietEnd"; await ctx.reply("Now send the quiet-hours end time, for example 07:00.", { reply_markup: { force_reply: true, input_field_placeholder: "07:00" } }); return; } if (step === "quietEnd") p.quietEnd = value; else p.summaryTime = value; ctx.session.step = undefined; await ctx.reply(step === "quietEnd" ? `Quiet hours are set to ${p.quietStart}–${p.quietEnd}.` : `Daily summary time is set to ${p.summaryTime}.`, { reply_markup: keyboard() }); });
 export default composer;

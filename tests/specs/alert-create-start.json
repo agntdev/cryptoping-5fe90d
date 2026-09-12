@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Guided flow to create a new alert for a tracked coin"
+              "text": "Add a coin to your list before creating an alert."
             }
           }
         ],
@@ -15,6 +15,18 @@
           "callback": "alert:create:start"
         }
       }
+    ]
+  }
+  ,{
+    "name": "Create a price alert",
+    "steps": [
+      { "send": { "callback": "addcoin:start" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "addcoin:ETH" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Ethereum (ETH) is now in your list." } }] },
+      { "send": { "callback": "alert:create:start" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose a tracked coin." } }] },
+      { "send": { "callback": "alert:coin:ETH" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Set an alert for ETH." } }] },
+      { "send": { "callback": "alert:type:price" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Send a USD target price greater than zero." } }] },
+      { "send": { "text": "3000" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose a cooldown after this alert fires. Your default is 4 hours." } }] },
+      { "send": { "callback": "alert:cooldown:4" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Alert saved: ETH at $3,000.00. It can trigger now; later alerts wait 4 hours." } }] }
     ]
   }
 ]
