@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Query current price: accepts a single ticker (typed) or no argument to return all tracked coins"
+              "text": "Your list is empty. Add a coin, or use /price BTC."
             }
           }
         ],

@@ -1,15 +1,16 @@
 import { Composer } from "grammy";
-import { createBot, type BotContext, type CreateBotOptions } from "./toolkit/index.js";
+import { createBot, resolveSessionStorage, type BotContext, type CreateBotOptions } from "./toolkit/index.js";
 import type { StorageAdapter } from "grammy";
 
 // The per-chat session shape (ephemeral conversation state only). Extend as the
 // bot grows. Durable domain data must NOT live here — use the toolkit's
 // persistent storage (see AGENTS.md).
 export interface Session {
-  // example: step?: "awaiting_amount";
+  step?: "timezone" | "ticker" | "price" | "percent" | "percentWindow" | "cooldown" | "quietStart" | "quietEnd" | "summaryTime" | "editValue" | "editCooldown";
+  pending?: { ticker?: string; type?: "price" | "percent"; window?: number; ruleId?: string };
 }
 
-export type Ctx = BotContext<Session>;
+export type Ctx = BotContext<Session> & { cryptoData?: import("./crypto.js").CryptoData };
 
 /**
  * BuildBotOptions lets a runtime-specific ENTRY POINT (never a feature handler)
@@ -43,11 +44,26 @@ export interface BuildBotOptions {
  * build-time manifest because Workers has no filesystem.
  */
 export async function buildBot(token: string, opts: BuildBotOptions = {}) {
+  // Domain records use a distinct key on the same configured persistent adapter.
+  // The grammY session remains strictly for short-lived conversation state.
+  const storage = resolveSessionStorage<Session>(opts.storage);
+  const domainStorage = storage as unknown as StorageAdapter<import("./crypto.js").CryptoData>;
   const bot = createBot<Session>(token, {
     initial: () => ({}),
-    storage: opts.storage,
+    storage,
     telemetryEnv: opts.telemetryEnv,
     telemetryReporterOptions: opts.telemetryReporterOptions,
+  });
+
+  bot.use(async (ctx, next) => {
+    if (ctx.chat) {
+      const key = `cryptoping:data:${ctx.chat.id}`;
+      (ctx as Ctx).cryptoData = await domainStorage.read(key);
+      await next();
+      if ((ctx as Ctx).cryptoData) await domainStorage.write(key, (ctx as Ctx).cryptoData!);
+      return;
+    }
+    await next();
   });
 
   const handlers = opts.handlers ?? (await loadHandlersFromDisk());

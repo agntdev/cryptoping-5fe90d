@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Open settings to set timezone, quiet hours, daily summary time, and cooldown defaults"
+              "text": "Settings\nTimezone: UTC\nQuiet hours: 23:00–07:00\nDaily summary: Off\nDefault cooldown: 4 hours"
             }
           }
         ],
@@ -15,6 +15,14 @@
           "callback": "settings:open"
         }
       }
+    ]
+  }
+  ,{
+    "name": "Set default cooldown",
+    "steps": [
+      { "send": { "callback": "settings:open" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "settings:cooldown" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Choose your default alert cooldown." } }] },
+      { "send": { "callback": "settings:cooldown:12" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Your default cooldown is now 12 hours." } }] }
     ]
   }
 ]
